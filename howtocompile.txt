@@ -1,0 +1,12 @@
+How to compile the Viewer in the LAB computers.
+
+1- Add the following lines to the Viewer.pro
+
+CONFIG(release, release|debug):QMAKE_CXXFLAGS += -Wall -O2 -std=c++11
+CONFIG(debug, release|debug):QMAKE_CXXFLAGS += -Wall -O2 -std=c++11
+
+2- Generate a Makefile using qmake-qt5.
+
+3- Download the eigen library and fix the include paths.
+
+4- Change the std::make_unique calls by std::unique_ptr<...>(new ...);
