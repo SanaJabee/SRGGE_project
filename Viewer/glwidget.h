@@ -13,16 +13,10 @@
 
 #include "./camera.h"
 #include "./triangle_mesh.h"
-
 class GLWidget : public QGLWidget {
   Q_OBJECT
 
  public:
-
-  GLuint VAO;
-
-  float measure;
-
   explicit GLWidget(QWidget *parent = 0);
   ~GLWidget();
 
@@ -33,6 +27,12 @@ class GLWidget : public QGLWidget {
    * @return Whether it was able to load the model.
    */
   bool LoadModel(QString filename);
+
+  //GL VAO
+  GLuint VAO;
+
+  //LOD
+  float distance;
 
  protected:
   /**
@@ -100,7 +100,6 @@ class GLWidget : public QGLWidget {
    * @brief SetFaces Signal that updates the interface label "Vertices".
    */
   void SetVertices(QString);
-
   /**
    * @brief SetFaces Signal that updates the interface label "Framerate".
    */

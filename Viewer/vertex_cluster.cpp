@@ -6,6 +6,7 @@ using namespace std;
 #include "vertex_cluster.h"
 #include "mesh_io.h"
 
+//utils
 void Add3Items(float i1, float i2, float i3, std::vector<float> *vector) {
   (*vector).push_back(i1);
   (*vector).push_back(i2);
@@ -92,8 +93,9 @@ void ComputeVertexNormals(const std::vector<float> &vertices,
 
 //··············································
 
-void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<int> &faces, Eigen::Vector3f &min, Eigen::Vector3f &max){
-   //General :find the bounding box of mesh
+void vertClust::Cluster(const std::vector<float> &verts, const std::vector<int> &faces, Eigen::Vector3f &min, Eigen::Vector3f &max){
+    //set grid size to scene size
+    //get mesh bounding box
     float step = (max[0] - min[0])/8; //set step to be based on bounding box
     int dimX = (int) ((max[0] - min[0])/step + 0.5) + 1;
     int dimY = (int) ((max[1] - min[1])/step + 0.5) + 1;
@@ -105,10 +107,10 @@ void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<i
     new_coords_x.resize(totalCells, 0); new_coords_y.resize(totalCells, 0); new_coords_z.resize(totalCells, 0);
     //std::vector<float> cellMin; std::vector<float> cellMax; //store cell min amd max position (octree) - well see about this.
     //cellMin.resize(totalCells); cellMax.resize(totalCells);
-   std::cout << "Total number of cells: " << totalCells << std::endl;
+
     std::cout << "Started vertex cluster. Initial grid dimmensions: " << dimX << " x " << dimY << " x " << dimZ << std::endl;
     std::cout << "Initial number of vertices: " << numVertices << std::endl;
-//min max bounding boxes for each axis
+
     std::cout << "Bounding box x: " << min[0] << ", " << max[0] << std::endl;
     std::cout << "Bounding box y: " << min[1] << ", " << max[1] << std::endl;
     std::cout << "Bounding box z: " << min[2] << ", " << max[2] << std::endl;
@@ -124,7 +126,6 @@ void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<i
                 && verts[v*3+1] >= y && verts[v*3+1] < (y + step) //vert.y
                 && verts[v*3+2] >= z && verts[v*3+2] < (z + step) && stop == 0) //vert.z
                     { //vertex is inside cell. Add to count. Do nothing on empty cells
-
                     old_to_new.push_back(curCell);
                     new_coords_x[curCell] += verts[v*3]; new_coords_y[curCell] += verts[v*3+1]; new_coords_z[curCell] += verts[(v*3)+2];
                     verts_per_cell[curCell] ++;
@@ -144,7 +145,7 @@ void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<i
             float vecX = 0; float vecY = 0; float vecZ = 0;
             vecX = new_coords_x[i]; vecY = new_coords_y[i]; vecZ = new_coords_z[i];
             vecX = vecX/verts_per_cell[i]; vecY = vecY/verts_per_cell[i]; vecZ = vecZ/verts_per_cell[i]; //this is the new vert
-            Add3Items(vecX, vecY, vecZ, &LODvertices); // add it to the final list
+            Add3Items(vecX, vecY, vecZ, &LODverts); // add it to the final list
             curCellwVert ++;
             if (verts_per_cell[i] > 4){ //compute lower octree level list
                    //
@@ -168,7 +169,7 @@ void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<i
         }
     }// End of face loop. New faces generated.
 
-    ComputeVertexNormals(LODvertices, LODfaces, &LODnormals);// Generate new normals.
+    ComputeVertexNormals(LODverts, LODfaces, &LODnormals);// Generate new normals.
     std::cout << "End of vertex clustering." << std::endl;
 }
 
@@ -176,6 +177,57 @@ void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<i
 
 //..............................................
 
+// Vertex cluster - quadratic error matrix calculations
+
+//··············································
+
+void vertClust::QuadCluster(const std::vector<float> &verts, const std::vector<int> &faces, const std::vector<float> &normals) {
+//Find the vertices planes: V->F struct, vertex per face count.
+    std::vector<Eigen::Matrix4f> KMat; KMat.resize(faces.size()); //fundamental quadratics matrix - one per face
+    std::vector<Eigen::Matrix4f> QMat; KMat.resize(verts.size()); //Q matrix - one per valid vertex
+    std::vector<std::vector<unsigned int>> VeF; VeF.resize(verts.size()); //faces per vert struct - one per vert
+    std::vector<std::pair<unsigned int, unsigned int>> validPairs; //valid vertex pairs
+
+    float pC[4]; // (temp) store coeficients of plane of face
+    unsigned int fV[3]; // (temp) stores the vertices of this face
+
+    for (unsigned int i=0; i < faces.size()/3; i++){ //FACES loop
+
+        for (unsigned int v=0; v <= 3; v++) {//run through vert indices in current face
+            //Building struct:
+            unsigned int curFaceIndex = i*3 + v;
+            VeF[curFaceIndex].push_back(faces[i]); //add the VERT INDEX to the curr FACE vector VeF.
+            //Build data for matrix computation
+            pC[v] = normals [i*3 + v]; //get a, b, c of plane from normal.
+            fV[v] = faces [i*3 + v];
+        }
+
+        //Compute Matrices:
+        //Get plane d from ax + by + cz + d = 0
+        float x = verts[faces[i*3]+0]; //coords of first vertex of this face
+        float y = verts[faces[i*3]+1];
+        float z = verts[faces[i*3]+2];
+        pC[3] = -(pC[0]*x + pC[1]*y + pC[2]*z);
+        KMat[i] << pC[0]*pC[0], pC[0]*pC[1], pC[0]*pC[2], pC[0]*pC[3],
+                   pC[1]*pC[0], pC[1]*pC[1], pC[1]*pC[2], pC[1]*pC[3],
+                   pC[2]*pC[0], pC[2]*pC[1], pC[2]*pC[2], pC[2]*pC[3],
+                   pC[3]*pC[0], pC[3]*pC[1], pC[3]*pC[2], pC[3]*pC[3];
+
+    }//end of face loop
+
+    //
+    for (unsigned int i=0; i < verts.size()/3; i++){//VERTS loop
+        //1)Compute Q matrices as the sum of K matrices
+        std::vector <unsigned int> myFaces = VeF[i];
+        QMat[i] << 0, 0, 0, 0,
+                   0, 0, 0, 0,
+                   0, 0, 0, 0,
+                   0, 0, 0, 0;
+        for (unsigned int j = 0; j < myFaces.size(); j++){ //sum the matrices
+        QMat[i] += KMat[myFaces [j]]; //add the face's K mat
+        }
+    }
+}
 
 /*
 ADV: shape preserving

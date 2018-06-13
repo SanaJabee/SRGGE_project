@@ -33,7 +33,6 @@ bool ReadFile(const std::string filename, std::string *shader_source) {
   std::stringstream stream;
   stream << infile.rdbuf();
   infile.close();
-
   *shader_source = stream.str();
   return true;
 }
@@ -53,8 +52,7 @@ bool GLWidget::LoadModel(QString filename) {
   std::string type = file.substr(pos + 1);
 
   std::unique_ptr<data_representation::TriangleMesh> mesh =
-       std::unique_ptr<data_representation::TriangleMesh>(new data_representation::TriangleMesh());
-     //std::make_unique<data_representation::TriangleMesh>();
+      std::unique_ptr<data_representation::TriangleMesh>(new data_representation::TriangleMesh);
 
   bool res = false;
   if (type.compare("ply") == 0) {
@@ -65,41 +63,49 @@ bool GLWidget::LoadModel(QString filename) {
     mesh_.reset(mesh.release());
     camera_.UpdateModel(mesh_->min_, mesh_->max_);
 
-    GLuint BufferCoords;
-    GLuint BufferIndxs;
-    GLuint Buffernorms;
+    GLuint coordBufferID; //VBO verts
+    GLuint indexBuffersID; //VBO faces
+    GLuint normBuffersID; //VBO norms
 
-    static vertexCluster vertC;
-    vertC.Cluster(mesh_->vertices_,mesh_->faces_,mesh_->min_,mesh_->max_);
+    //get new vertices from VERTEX CLUSTERING
+    static vertClust vC;
+    vC.Cluster(mesh_->vertices_, mesh_->faces_, mesh_->min_, mesh_->max_);
+    //VERTEX CLUSTERING END
+    std::vector<float> verts = vC.LODverts;
+    std::vector<int> faces = vC.LODfaces;
+    std::vector<float> normals = vC.LODnormals;
 
-    std::vector<float> verts = vertC.LODvertices;
-    std::vector<int> faces = vertC.LODfaces;
-    std::vector<float> normals = vertC.LODnormals;
+    emit SetFaces(QString(std::to_string(faces.size() / 3).c_str()));
+    emit SetVertices(QString(std::to_string(verts.size() / 3).c_str()));
 
-
-    emit SetFaces(QString(std::to_string(mesh_->faces_.size() / 3).c_str()));
-    emit SetVertices(QString(std::to_string(mesh_->vertices_.size() / 3).c_str()));
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
-    glGenBuffers(1, &BufferCoords);
-    glGenBuffers(1, &BufferIndxs);
-    glGenBuffers(1, &Buffernorms);
+    // TODO: Create / Initialize buffers.
+    //Vertex buffer objects
+    //Create empty VAO/ Buffers
+    glGenVertexArrays(1, &VAO); //generate VAO
+    glBindVertexArray(VAO); //bind VAO
+    //-----//
+    glGenBuffers(1, &coordBufferID); //VBO verts
+    glGenBuffers(1, &indexBuffersID); //VBO faces
+    glGenBuffers(1, &normBuffersID); //VBO faces
     //Bind/ pass data verts
-    glBindBuffer(GL_ARRAY_BUFFER, BufferCoords);
-    glBufferData(GL_ARRAY_BUFFER, verts.size()*sizeof(float),
-    &verts[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffernorms);
+    glBindBuffer(GL_ARRAY_BUFFER, coordBufferID); //bind coord buffer
+    glBufferData(GL_ARRAY_BUFFER, verts.size()*sizeof(float), // sizeof(boxVerts)/sizeof(boxVerts[0]),
+                   &verts[0], GL_STATIC_DRAW); // ONCE - pass data to buffer
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0); // VAO - set id and size
+    glEnableVertexAttribArray(0); // Enable 0
+    //Bind / pass data normals
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, normBuffersID); // VBO
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, normals.size()*sizeof(float),
-    &normals[0], GL_STATIC_DRAW);
+                   &normals[0], GL_STATIC_DRAW);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
     glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BufferIndxs);
+    //Bind / pass data faces
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffersID); // VBO
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size()*sizeof(int),
-    &faces[0], GL_STATIC_DRAW);
-    glBindVertexArray(0);
+                   &faces[0], GL_STATIC_DRAW);
+    glBindVertexArray(0);//unbind VAO (!!)
+    //BUFFERS!
+    // END.
 
     return true;
   }
@@ -121,7 +127,7 @@ void GLWidget::initializeGL() {
 
   if (!res) exit(0);
 
-  program_ = std::unique_ptr<QOpenGLShaderProgram>(new(QOpenGLShaderProgram));
+  program_ = std::unique_ptr<QOpenGLShaderProgram>(new QOpenGLShaderProgram);
   program_->addShaderFromSourceCode(QOpenGLShader::Vertex,
                                     vertex_shader.c_str());
   program_->addShaderFromSourceCode(QOpenGLShader::Fragment,
@@ -195,74 +201,67 @@ void GLWidget::paintGL() {
     Eigen::Matrix4f projection = camera_.SetProjection();
     Eigen::Matrix4f view = camera_.SetView();
 
-
-
-
-
-
     if (mesh_ != nullptr) {
 
-        const int n=2;
-        const float scalar = 1.5;
-        for (int i = -n+1; i<n;++i){
-            for(int j = -n+1; j< n ;++j){
 
-                  Eigen::Matrix4f model = camera_.SetModel();
-                  Eigen::Matrix4f alterview = view.inverse();
-                  Eigen::Vector3f camera(alterview(0, 3), alterview(1, 3), alterview(2, 3));
-                  Eigen::Vector3f map (i*scalar,0,j*scalar);
-                  Eigen::Vector3f distance = camera - map;
-                  const Eigen::Affine3f kmap(Eigen::Translation3f(i*scalar,0,j*scalar));
-                  model = kmap * model;
-                  measure = distance.norm()/5;
+      //Rendering model grid
+      const int n = 2;
+      const float scaler = 1.5;
+      for  (int i = -n+1; i < n; ++i) {
+        for  (int j = -n+1; j < n; ++j) { // Draw multiple copies for of an object
 
-                  Eigen::Matrix4f t = view * model;
-                  Eigen::Matrix3f normal;
-                  for (int i = 0; i < 3; ++i)
-                    for (int j = 0; j < 3; ++j) normal(i, j) = t(i, j);
+          Eigen::Matrix4f model = camera_.SetModel();
+          Eigen::Matrix4f inverseView = view.inverse();
+          Eigen::Vector3f camera (inverseView(0, 3), inverseView(1, 3), inverseView(2, 3));
+          Eigen::Vector3f translation (i*scaler, 0, j*scaler);
+          Eigen::Vector3f dist = camera - translation;
+          const Eigen::Affine3f kTranslation(Eigen::Translation3f(i*scaler, 0, j*scaler));
+          model = kTranslation * model;
+          distance = dist.norm()/5;
 
-                  normal = normal.inverse().transpose();
-                  program_->bind();
+          Eigen::Matrix4f t = view * model;
+          Eigen::Matrix3f normal;
+          for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) normal(i, j) = t(i, j);
 
-                 // GLuint MyShader = program_->programId();
+          normal = normal.inverse().transpose();
 
-                  //glBindAttribLocation(MyShader, 0, "vert");
-                  //glBindAttribLocation(MyShader, 1, "normal");
+          program_->bind();
 
-                  GLuint projection_location = program_->uniformLocation("projection");
-                  glUniformMatrix4fv(projection_location, 1, GL_FALSE, projection.data());
+          GLuint projection_location = program_->uniformLocation("projection");
+          glUniformMatrix4fv(projection_location, 1, GL_FALSE, projection.data());
 
-                  GLuint view_location = program_->uniformLocation("view");
-                  glUniformMatrix4fv(view_location, 1, GL_FALSE, view.data());
+          GLuint view_location = program_->uniformLocation("view");
+          glUniformMatrix4fv(view_location, 1, GL_FALSE, view.data());
 
-                  GLuint model_location = program_->uniformLocation("model");
-                  glUniformMatrix4fv(model_location, 1, GL_FALSE, model.data());
+          GLuint model_location = program_->uniformLocation("model");
+          glUniformMatrix4fv(model_location, 1, GL_FALSE, model.data());
 
-                  GLuint LOD_location = program_->uniformLocation("LOD");
-                  glUniform1f(LOD_location, measure);
+          GLuint LOD_location = program_->uniformLocation("LOD");
+          glUniform1f(LOD_location, distance);
 
-                  GLuint normal_matrix_location =
-                      program_->uniformLocation("normal_matrix");
-                  glUniformMatrix3fv(normal_matrix_location, 1, GL_FALSE, normal.data());
+          GLuint normal_matrix_location =
+              program_->uniformLocation("normal_matrix");
+          glUniformMatrix3fv(normal_matrix_location, 1, GL_FALSE, normal.data());
 
-                  // TODO: Implement model rendering.
-
-                  glBindVertexArray(VAO); //Draw
-                            glDrawElements(GL_TRIANGLES, mesh_->faces_.size(), GL_UNSIGNED_INT, 0);
-                            glBindVertexArray(0); //unbind the VAO (!!)
+          glBindVertexArray(VAO); //Draw
+          glDrawElements(GL_TRIANGLES, mesh_->faces_.size(), GL_UNSIGNED_INT, 0);
+          glBindVertexArray(0); //unbind the VAO (!!)
 
             }
 
+        //Rendering mode 2 - Museus rooms.
+        /*tile based representation.
+        -color coded floor plan
+        */
+          }
+          glEnd();
+
+          // END.
         }
+      }
 
 
-
-
-      glEnd();
-
-      // END.
-    }
-  }
 
   // TODO: Implement framerate displaying.
 
