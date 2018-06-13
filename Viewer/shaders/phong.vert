@@ -3,7 +3,7 @@
 //layout (location = 0) in vec3 vert;
 //layout (location = 1) in vec3 normal;
 
-attribute vec3 vert;
+attribute vec3 vertex;
 attribute vec3 normal;
 
 uniform mat4 projection;
@@ -19,7 +19,7 @@ flat out vec3 light_pos;
 void main(void)  {
     light_pos = (view * vec4(0, 0, 100, 1)).xyz;
 
-    vec4 view_vertex = view * model * vec4(vert, 1);
+    vec4 view_vertex = view * model * vec4(vertex, 1);
     V = view_vertex.xyz;
     N = normalize(normal_matrix * normal);
 

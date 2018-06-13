@@ -21,6 +21,8 @@ class GLWidget : public QGLWidget {
 
   GLuint VAO;
 
+  float measure;
+
   explicit GLWidget(QWidget *parent = 0);
   ~GLWidget();
 

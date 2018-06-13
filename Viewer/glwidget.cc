@@ -69,11 +69,19 @@ bool GLWidget::LoadModel(QString filename) {
     GLuint BufferIndxs;
     GLuint Buffernorms;
 
-    std::vector<float> verts = mesh_->vertices_;
-    std::vector<int> faces = mesh_->faces_;
-    std::vector<float> normals = mesh_->normals_;
+    static vertexCluster vertC;
+    vertC.Cluster(mesh_->vertices_,mesh_->faces_,mesh_->min_,mesh_->max_);
+
+    std::vector<float> verts = vertC.LODvertices;
+    std::vector<int> faces = vertC.LODfaces;
+    std::vector<float> normals = vertC.LODnormals;
+
+
+    emit SetFaces(QString(std::to_string(mesh_->faces_.size() / 3).c_str()));
+    emit SetVertices(QString(std::to_string(mesh_->vertices_.size() / 3).c_str()));
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
+
     glGenBuffers(1, &BufferCoords);
     glGenBuffers(1, &BufferIndxs);
     glGenBuffers(1, &Buffernorms);
@@ -92,9 +100,7 @@ bool GLWidget::LoadModel(QString filename) {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size()*sizeof(int),
     &faces[0], GL_STATIC_DRAW);
     glBindVertexArray(0);
-    emit SetFaces(QString(std::to_string(mesh_->faces_.size() / 3).c_str()));
-    emit SetVertices(
-        QString(std::to_string(mesh_->vertices_.size() / 3).c_str()));
+
     return true;
   }
 
@@ -188,51 +194,79 @@ void GLWidget::paintGL() {
 
     Eigen::Matrix4f projection = camera_.SetProjection();
     Eigen::Matrix4f view = camera_.SetView();
-    Eigen::Matrix4f model = camera_.SetModel();
 
-    Eigen::Matrix4f t = view * model;
-    Eigen::Matrix3f normal;
-    for (int i = 0; i < 3; ++i)
-      for (int j = 0; j < 3; ++j) normal(i, j) = t(i, j);
 
-    normal = normal.inverse().transpose();
+
+
+
 
     if (mesh_ != nullptr) {
-      program_->bind();
 
-      GLuint MyShader = program_->programId();
+        const int n=2;
+        const float scalar = 1.5;
+        for (int i = -n+1; i<n;++i){
+            for(int j = -n+1; j< n ;++j){
 
-      glBindAttribLocation(MyShader, 0, "vert");
-      glBindAttribLocation(MyShader, 1, "normal");
+                  Eigen::Matrix4f model = camera_.SetModel();
+                  Eigen::Matrix4f alterview = view.inverse();
+                  Eigen::Vector3f camera(alterview(0, 3), alterview(1, 3), alterview(2, 3));
+                  Eigen::Vector3f map (i*scalar,0,j*scalar);
+                  Eigen::Vector3f distance = camera - map;
+                  const Eigen::Affine3f kmap(Eigen::Translation3f(i*scalar,0,j*scalar));
+                  model = kmap * model;
+                  measure = distance.norm()/5;
 
-      GLuint projection_location = program_->uniformLocation("projection");
-      glUniformMatrix4fv(projection_location, 1, GL_FALSE, projection.data());
+                  Eigen::Matrix4f t = view * model;
+                  Eigen::Matrix3f normal;
+                  for (int i = 0; i < 3; ++i)
+                    for (int j = 0; j < 3; ++j) normal(i, j) = t(i, j);
 
-      GLuint view_location = program_->uniformLocation("view");
-      glUniformMatrix4fv(view_location, 1, GL_FALSE, view.data());
+                  normal = normal.inverse().transpose();
+                  program_->bind();
 
-      GLuint model_location = program_->uniformLocation("model");
-      glUniformMatrix4fv(model_location, 1, GL_FALSE, model.data());
+                 // GLuint MyShader = program_->programId();
 
-      GLuint normal_matrix_location =
-          program_->uniformLocation("normal_matrix");
-      glUniformMatrix3fv(normal_matrix_location, 1, GL_FALSE, normal.data());
+                  //glBindAttribLocation(MyShader, 0, "vert");
+                  //glBindAttribLocation(MyShader, 1, "normal");
 
-      // TODO: Implement model rendering.
+                  GLuint projection_location = program_->uniformLocation("projection");
+                  glUniformMatrix4fv(projection_location, 1, GL_FALSE, projection.data());
 
-      glBindVertexArray(VAO); //Draw
-                glDrawElements(GL_TRIANGLES, mesh_->faces_.size(), GL_UNSIGNED_INT, 0);
-                glBindVertexArray(0); //unbind the VAO (!!)
+                  GLuint view_location = program_->uniformLocation("view");
+                  glUniformMatrix4fv(view_location, 1, GL_FALSE, view.data());
+
+                  GLuint model_location = program_->uniformLocation("model");
+                  glUniformMatrix4fv(model_location, 1, GL_FALSE, model.data());
+
+                  GLuint LOD_location = program_->uniformLocation("LOD");
+                  glUniform1f(LOD_location, measure);
+
+                  GLuint normal_matrix_location =
+                      program_->uniformLocation("normal_matrix");
+                  glUniformMatrix3fv(normal_matrix_location, 1, GL_FALSE, normal.data());
+
+                  // TODO: Implement model rendering.
+
+                  glBindVertexArray(VAO); //Draw
+                            glDrawElements(GL_TRIANGLES, mesh_->faces_.size(), GL_UNSIGNED_INT, 0);
+                            glBindVertexArray(0); //unbind the VAO (!!)
+
+            }
 
         }
-      }
+
+
+
+
       glEnd();
 
       // END.
     }
+  }
 
   // TODO: Implement framerate displaying.
 
   // emit SetFramerate(...);
 
   // END.
+}

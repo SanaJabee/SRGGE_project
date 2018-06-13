@@ -1,5 +1,7 @@
 #version 130
 
+uniform float LOD;
+
 smooth in vec3 N;
 smooth in vec3 V;
 
@@ -23,5 +25,5 @@ void main (void) {
    Ispec = clamp(Ispec, 0.0, 1.0);
 
    // write Total Color:  
-   frag_color = vec4(Iamb * 0.4 + Idiff * 0.6 + Ispec * 0.2, 1.0);
+   frag_color = vec4(Iamb * 0.4 + Idiff * 0.6 + Ispec * 0.2, 1.0)*LOD;
 }

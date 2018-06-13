@@ -18,6 +18,8 @@
 #endif
 
 QT_BEGIN_MOC_NAMESPACE
+QT_WARNING_PUSH
+QT_WARNING_DISABLE_DEPRECATED
 struct qt_meta_stringdata_gui__MainWindow_t {
     QByteArrayData data[4];
     char stringdata0[65];
@@ -80,7 +82,7 @@ void gui::MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
 
 const QMetaObject gui::MainWindow::staticMetaObject = {
     { &QMainWindow::staticMetaObject, qt_meta_stringdata_gui__MainWindow.data,
-      qt_meta_data_gui__MainWindow,  qt_static_metacall, Q_NULLPTR, Q_NULLPTR}
+      qt_meta_data_gui__MainWindow,  qt_static_metacall, nullptr, nullptr}
 };
 
 
@@ -91,7 +93,7 @@ const QMetaObject *gui::MainWindow::metaObject() const
 
 void *gui::MainWindow::qt_metacast(const char *_clname)
 {
-    if (!_clname) return Q_NULLPTR;
+    if (!_clname) return nullptr;
     if (!strcmp(_clname, qt_meta_stringdata_gui__MainWindow.stringdata0))
         return static_cast<void*>(const_cast< MainWindow*>(this));
     return QMainWindow::qt_metacast(_clname);
@@ -113,4 +115,5 @@ int gui::MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     }
     return _id;
 }
+QT_WARNING_POP
 QT_END_MOC_NAMESPACE

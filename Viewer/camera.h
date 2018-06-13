@@ -7,7 +7,7 @@
 
 namespace data_visualization {
 
-const double kMaxCameraDistance = 3.0;
+const double kMaxCameraDistance = 30.0;
 const double kMinCameraDistance = -kMaxCameraDistance;
 
 const double kMinRotationX = -M_PI / 2;
@@ -16,7 +16,7 @@ const double MaxRotationX = M_PI / 2;
 const double AngleIncrement = 0.01;
 
 class Camera {
- private:
+ public:
   /**
    * @brief distance_ Zoom distance.
    */
@@ -134,7 +134,7 @@ class Camera {
    */
   double z_far_;
 
- public:
+
   /**
    * @brief Camera Constructor of the class.
    */

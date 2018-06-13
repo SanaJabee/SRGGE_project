@@ -144,18 +144,18 @@ public:
 
     void retranslateUi(QMainWindow *MainWindow)
     {
-        MainWindow->setWindowTitle(QApplication::translate("MainWindow", "MainWindow", 0));
-        actionQuit->setText(QApplication::translate("MainWindow", "Quit", 0));
-        actionLoad->setText(QApplication::translate("MainWindow", "Load", 0));
-        TreeOptions->setTitle(QApplication::translate("MainWindow", "Options", 0));
+        MainWindow->setWindowTitle(QApplication::translate("MainWindow", "MainWindow",Q_NULLPTR));
+        actionQuit->setText(QApplication::translate("MainWindow", "Quit",Q_NULLPTR));
+        actionLoad->setText(QApplication::translate("MainWindow", "Load",Q_NULLPTR));
+        TreeOptions->setTitle(QApplication::translate("MainWindow", "Options",Q_NULLPTR));
         RenderOptions->setTitle(QString());
-        Label_NumFaces->setText(QApplication::translate("MainWindow", "0", 0));
-        Label_Faces->setText(QApplication::translate("MainWindow", "Faces", 0));
-        Label_Vertices->setText(QApplication::translate("MainWindow", "Vertices", 0));
-        Label_NumVertices->setText(QApplication::translate("MainWindow", "0", 0));
-        Label_Framerate->setText(QApplication::translate("MainWindow", "Framerate", 0));
-        Label_NumFramerate->setText(QApplication::translate("MainWindow", "0", 0));
-        menuFile->setTitle(QApplication::translate("MainWindow", "File", 0));
+        Label_NumFaces->setText(QApplication::translate("MainWindow", "0",Q_NULLPTR));
+        Label_Faces->setText(QApplication::translate("MainWindow", "Faces",Q_NULLPTR));
+        Label_Vertices->setText(QApplication::translate("MainWindow", "Vertices",Q_NULLPTR));
+        Label_NumVertices->setText(QApplication::translate("MainWindow", "0",Q_NULLPTR));
+        Label_Framerate->setText(QApplication::translate("MainWindow", "Framerate",Q_NULLPTR));
+        Label_NumFramerate->setText(QApplication::translate("MainWindow", "0",Q_NULLPTR));
+        menuFile->setTitle(QApplication::translate("MainWindow", "File",Q_NULLPTR));
     } // retranslateUi
 
 };
