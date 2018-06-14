@@ -77,156 +77,147 @@ void int_vector(int i1, int i2, int i3, std::vector<int> *vector) {
 // Vertex cluster - Average all verts in cell + octree
 
 //··············································
-
+int vertsInLastLOD = 0;
 void vertexCluster::Cluster(const std::vector<float> &verts, const std::vector<int> &faces, Eigen::Vector3f &min, Eigen::Vector3f &max){
    //General :find the bounding box of mesh
-    float step = (max[0] - min[0])/8; //set step to be based on bounding box
-    int dimX = (int) ((max[0] - min[0])/step + 0.5) + 1;
-    int dimY = (int) ((max[1] - min[1])/step + 0.5) + 1;
-    int dimZ = (int) ((max[2] - min[2])/step + 0.5) + 1;
+    float pos = (max[0] - min[0])/4;
+    int x_axis = (int) ((max[0] - min[0])/pos + 0.5) + 1;
+    int y_axis = (int) ((max[1] - min[1])/pos + 0.5) + 1;
+    int z_axis = (int) ((max[2] - min[2])/pos + 0.5) + 1;
 
-    int totalCells = dimX*dimY*dimZ;
-    const unsigned int numVertices = verts.size() / 3;
-    per_cell.resize(totalCells, 0);
-    x_coords.resize(totalCells, 0); y_coords.resize(totalCells, 0); z_coords.resize(totalCells, 0);
-    //std::vector<float> cellMin; std::vector<float> cellMax; //store cell min amd max position (octree) - well see about this.
-    //cellMin.resize(totalCells); cellMax.resize(totalCells);
-   std::cout << "Total number of cells: " << totalCells << std::endl;
-    std::cout << "Started vertex cluster. Initial grid dimmensions: " << dimX << " x " << dimY << " x " << dimZ << std::endl;
-    std::cout << "Initial number of vertices: " << numVertices << std::endl;
-//min max bounding boxes for each axis
-    std::cout << "Bounding box x: " << min[0] << ", " << max[0] << std::endl;
-    std::cout << "Bounding box y: " << min[1] << ", " << max[1] << std::endl;
-    std::cout << "Bounding box z: " << min[2] << ", " << max[2] << std::endl;
+    int cells = x_axis*y_axis*z_axis;
+    const unsigned int vert_count = verts.size() / 3;
+    per_cell.resize(cells, 0);
+    x_coords.resize(cells, 0); y_coords.resize(cells, 0); z_coords.resize(cells, 0);
 
-    unsigned int curCell = 0; //track current cell
-    for (unsigned int v = 0; v < numVertices; v++){ //For each vert
-        curCell = 0;
-        bool stop = 0;
-        for(float x = min[0]; x <= (max[0] + step) && stop == 0; x+=step){
-            for(float y = min[1]; y <= (max[1] + step) && stop == 0; y+=step){
-                for(float z = min[2]; z <= (max[2] + step) && stop == 0; z+=step){
-                if (verts[v*3] >= x && verts[v*3] < (x + step) //vert.x
-                && verts[v*3+1] >= y && verts[v*3+1] < (y + step) //vert.y
-                && verts[v*3+2] >= z && verts[v*3+2] < (z + step) && stop == 0) //vert.z
-                    { //vertex is inside cell. Add to count. Do nothing on empty cells
 
-                    new_faces.push_back(curCell);
-                    x_coords[curCell] += verts[v*3]; y_coords[curCell] += verts[v*3+1]; z_coords[curCell] += verts[(v*3)+2];
-                    per_cell[curCell] ++;
-                    stop = 1; //cell was found. Stop cell loop.
-                    } // End of veretices condition
-                curCell ++; //look into each grid cell. - current cell
+    std::cout << "::::::General Initial Data::::: " << std::endl;
+    std::cout << "Total number of vertices: " << vert_count << std::endl;
+    std::cout << "Total number of cells: " << cells << std::endl;
+    std::cout << "::::::::Started vertex cluster::::::: " << x_axis << " x " << y_axis << " x " << z_axis << std::endl;
+
+    unsigned int arbitrary_cell = 0; //track current cell
+    for (unsigned int v = 0; v < vert_count; v++){
+        arbitrary_cell = 0;
+        bool pos_end = 0;
+        for(float x = min[0]; x <= (max[0] + pos) && pos_end == 0; x+=pos){
+            for(float y = min[1]; y <= (max[1] + pos) && pos_end == 0; y+=pos){
+                for(float z = min[2]; z <= (max[2] + pos) && pos_end == 0; z+=pos){
+                if (verts[v*3] >= x && verts[v*3] < (x + pos) //vert.x
+                && verts[v*3+1] >= y && verts[v*3+1] < (y + pos) //vert.y
+                && verts[v*3+2] >= z && verts[v*3+2] < (z + pos) && pos_end == 0)
+                    {
+                    new_faces.push_back(arbitrary_cell);
+                    cellMin[arbitrary_cell] = {x, y, z};
+                    x_coords[arbitrary_cell] += verts[v*3]; y_coords[arbitrary_cell] += verts[v*3+1]; z_coords[arbitrary_cell] += verts[(v*3)+2];
+                    verts_in_cell[arbitrary_cell].push_back(v);
+                    per_cell[arbitrary_cell] ++;
+                    pos_end = 1;
+                    }
+                arbitrary_cell ++;
                 }
             }
-        } //End of cell loop (and stop condition)
-
-    }//End of vert loop. Verts mapped to cells.
-    unsigned int currentLevel;
-    unsigned int curCellwVert = 0; //track cur cell - ignores empties
-    for(unsigned int i = 0; i < per_cell.size(); i++){ //cell loop
+        }
+    }
+    unsigned int Level;
+    unsigned int empty_arbitrary_cell = 0; //track cur cell - ignores empties
+    int new_level = 0;
+    for(unsigned int i = 0; i < cells; i++){
         if (per_cell[i] > 0){ //compute current octree level verts
-            check_cells[i] = curCellwVert;
+            check_cells[i] = empty_arbitrary_cell;
             float vecX = 0; float vecY = 0; float vecZ = 0;
             vecX = x_coords[i]; vecY = y_coords[i]; vecZ = z_coords[i];
             vecX = vecX/per_cell[i]; vecY = vecY/per_cell[i]; vecZ = vecZ/per_cell[i]; //this is the new vert
-            float_vector(vecX, vecY, vecZ, &LODvertices); // add it to the final list
-            curCellwVert ++;
-            if (per_cell[i] > 4){ //compute lower octree level list
-                   //
+
+            if (i >= vertsInLastLOD){
+                           vecX = vecX/per_cell[i]; vecY = vecY/per_cell[i]; vecZ = vecZ/per_cell[i]; //this is the new vert
+                       }
+
+
+            if (Level == 0) {float_vector(vecX, vecY, vecZ, &LODvertices);} // add it to the final list
+            else if (Level == 1) {float_vector(vecX, vecY, vecZ, &LODvertices1);} // add it to the final list
+            else if (Level == 2) {float_vector(vecX, vecY, vecZ, &LODvertices2);} // add it to the final list
+            else if (Level == 3) {float_vector(vecX, vecY, vecZ, &LODvertices3);} // add it to the final list
+
+            if (per_cell[i] > 36 && Level < 4){ //compute lower octree level if there are enough verts in this cell
+                float lower_pos = pos/((Level +1)*2); //pos for next LOD
+                for (int c = 0;c<8;c++){per_cell.push_back(0);
+                    x_coords.push_back(0);
+                    y_coords.push_back(0);
+                    z_coords.push_back(0);
+                    cellMin.push_back({0, 0, 0});} //add 8 new verts
+
+
+                for (int v=0; v<per_cell[i]; v++){//loop through verts inside this cell
+                    int pos_end = 0; //pos_end checking when cell is found
+                    int subCellndex = 0; //index of subcell
+                    int vertIndex = verts_in_cell[i][v]; //GETTING THE WRONG INFO!!!!!!!!
+                                //std::cout << verts_in_cell[i][v] << std::endl;
+                    float xV = verts[3*vertIndex+0]; float yV = verts[3*vertIndex+1]; float zV = verts[3*vertIndex+2];
+                    for(float x = cellMin[i][0]; x <= (cellMin[i][0] + pos - 0.001); x+=lower_pos){
+                    for(float y = cellMin[i][1]; y <= (cellMin[i][1] + pos - 0.001); y+=lower_pos){
+                    for(float z = cellMin[i][2]; z <= (cellMin[i][2] + pos - 0.001); z+=lower_pos){
+                        if (pos_end == 0 && xV >= x && xV < (x + lower_pos + 0.001) //vert.x
+                        && yV >= y && yV < (y + lower_pos + 0.001) //vert.y
+                        && zV >= z && zV < (z + lower_pos + 0.001)){
+                                        int newCellInd = cells + new_level + subCellndex;
+                                        x_coords[newCellInd] += xV;
+                                        y_coords[newCellInd] += yV;
+                                        z_coords[newCellInd] += zV;
+                                        per_cell[newCellInd] ++;
+                                        verts_in_cell[newCellInd].push_back(vertIndex);
+                                        new_faces_again[vertIndex] = newCellInd;
+                                        if(cellMin[newCellInd][0] == 0){cellMin[newCellInd] = {x, y, z};}
+
+                                        //old_to_new[vertIndex] = cells+new_level+subCellndex;
+                                        pos_end = 1;
+                                    }
+
+                                    subCellndex ++;
+                                }}}
+                            }
+                            new_level ++;
+                            per_cell[i] = 0;
+                        }
+                        else {
+                           for (int v=0; v<per_cell[i]; v++){new_faces_again[verts_in_cell[i][v]] = i;}}
+                        empty_arbitrary_cell ++;
+
+
+                        }
+                if(i == cells -1 && Level < 4)
+                {
+                    i=0;
+                    vertsInLastLOD = cells;
+                    cells = per_cell.size();
+                    computeFacesNormals(Level, faces, new_faces);
+                    Level++;
+                    empty_arbitrary_cell = 0; //track cur cell - ignores empties
+                    new_faces = new_faces_again; //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! probably a better way to do this.
+                    } //change the LOD level
+                }//End of cell loop. New positions defined.
+            // Generate new normals.
+                std::cout << "End of vertex clustering." << std::endl;
             }
-            /*if (vecX >= min[0] && vecX < max[0] //vert.x
-            && vecY >= min[1] && vecY < max[1] //vert.y
-            && vecZ >= min[2] && vecZ < max[2]){} //vert.z
-            else {std::cout << vecX << ", " << vecY << ", " << vecZ << ", " << i << ". " << std::endl;}*/
-             //Check if any new vert ended outside of bounding box
 
-        }
-    }//End of cell loop. New positions defined.
-
+void vertexCluster::computeFacesNormals(int LOD, const std::vector<int> &faces, const std::vector<int> &oldNew){
     const unsigned int numFaces = faces.size() / 3;
     int faceVerts[4] = {0, 0, 0, 0}; //face verts. [3] = weather or not this face is kept.
     for (unsigned int f = 0; f < numFaces; f++){ //loop through faces. Find where their verts are. Change the indices to the new verts.
-        faceVerts[0] = check_cells[new_faces[faces[f*3+0]]]; faceVerts[1] = check_cells[new_faces[faces[f*3+1]]]; faceVerts[2] = check_cells[new_faces[faces[f*3+2]]]; faceVerts[3] = 0;
+        faceVerts[0] = check_cells[oldNew[faces[f*3+0]]]; faceVerts[1] = check_cells[oldNew[faces[f*3+1]]]; faceVerts[2] = check_cells[oldNew[faces[f*3+2]]]; faceVerts[3] = 0;
         if (faceVerts[0] != faceVerts[1]) {faceVerts[3] += 1;} if (faceVerts[0] != faceVerts[2]) {faceVerts[3] += 1;}
         if (faceVerts[1] != faceVerts[2]) {faceVerts[3] += 1;} if (faceVerts[3] == 3){ //this face is marked to be kept.
-            int_vector(faceVerts[0], faceVerts[1], faceVerts[2], &LODfaces);
-        }
-    }// End of face loop. New faces generated.
-
-    get_norms(LODvertices, LODfaces, &LODnormals);// Generate new normals.
-    std::cout << "End of vertex clustering." << std::endl;
+            if (LOD == 0){int_vector(faceVerts[0], faceVerts[1], faceVerts[2], &LODfaces);}
+            else if (LOD == 1){int_vector(faceVerts[0], faceVerts[1], faceVerts[2], &LODfaces1);}
+            else if (LOD == 2){int_vector(faceVerts[0], faceVerts[1], faceVerts[2], &LODfaces2);}
+            else if (LOD == 3){int_vector(faceVerts[0], faceVerts[1], faceVerts[2], &LODfaces3);}
+                  }
+                }// End of face loop. New faces generated.
+    if (LOD == 0){get_norms(LODvertices, LODfaces, &LODnormals);}
+    else if (LOD == 1){get_norms(LODvertices1, LODfaces1, &LODnormals1);}
+    else if (LOD == 2){get_norms(LODvertices2, LODfaces2, &LODnormals2);}
+    else if (LOD == 3){get_norms(LODvertices3, LODfaces3, &LODnormals3);}
 }
-
-
-
-//..............................................
-
-// Vertex cluster - quadratic error matrix calculations
-
-//··············································
-
-void vertexCluster::QuadCluster(const std::vector<float> &verts, const std::vector<int> &faces, const std::vector<float> &normals) {
-//Find the vertices planes: V->F struct, vertex per face count.
-    std::vector<Eigen::Matrix4f> KMat; KMat.resize(faces.size()); //fundamental quadratics matrix - one per face
-    std::vector<Eigen::Matrix4f> QMat; KMat.resize(verts.size()); //Q matrix - one per valid vertex
-    std::vector<std::vector<unsigned int>> VeF; VeF.resize(verts.size()); //faces per vert struct - one per vert
-    std::vector<std::pair<unsigned int, unsigned int>> validPairs; //valid vertex pairs
-
-    float pC[4]; // (temp) store coeficients of plane of face
-    unsigned int fV[3]; // (temp) stores the vertices of this face
-
-    for (unsigned int i=0; i < faces.size()/3; i++){ //FACES loop
-
-        for (unsigned int v=0; v <= 3; v++) {//run through vert indices in current face
-            //Building struct:
-            unsigned int curFaceIndex = i*3 + v;
-            VeF[curFaceIndex].push_back(faces[i]); //add the VERT INDEX to the curr FACE vector VeF.
-            //Build data for matrix computation
-            pC[v] = normals [i*3 + v]; //get a, b, c of plane from normal.
-            fV[v] = faces [i*3 + v];
-        }
-
-        //Compute Matrices:
-        //Get plane d from ax + by + cz + d = 0
-        float x = verts[faces[i*3]+0]; //coords of first vertex of this face
-        float y = verts[faces[i*3]+1];
-        float z = verts[faces[i*3]+2];
-        pC[3] = -(pC[0]*x + pC[1]*y + pC[2]*z);
-        KMat[i] << pC[0]*pC[0], pC[0]*pC[1], pC[0]*pC[2], pC[0]*pC[3],
-                   pC[1]*pC[0], pC[1]*pC[1], pC[1]*pC[2], pC[1]*pC[3],
-                   pC[2]*pC[0], pC[2]*pC[1], pC[2]*pC[2], pC[2]*pC[3],
-                   pC[3]*pC[0], pC[3]*pC[1], pC[3]*pC[2], pC[3]*pC[3];
-
-    }//end of face loop
-
-    //
-    for (unsigned int i=0; i < verts.size()/3; i++){//VERTS loop
-        //1)Compute Q matrices as the sum of K matrices
-        std::vector <unsigned int> myFaces = VeF[i];
-        QMat[i] << 0, 0, 0, 0,
-                   0, 0, 0, 0,
-                   0, 0, 0, 0,
-                   0, 0, 0, 0;
-        for (unsigned int j = 0; j < myFaces.size(); j++){ //sum the matrices
-        QMat[i] += KMat[myFaces [j]]; //add the face's K mat
-        }
-    }
-}
-
-/*
-ADV: shape preserving
-Define 8 normal directions
-build the reg grid/ octree
-compute mean with the QEM
-*/
-
-/*
-octrees:
-Bounding boxes -> 1st level of the grid -> redivide cells based on amount of vers verts cell.
-
-loop through all faces -> find the verts that have been collapsed -> change them to the new verts.
-*/
 
 
 

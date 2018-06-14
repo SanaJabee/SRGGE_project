@@ -1,10 +1,10 @@
 #version 130
 
-//layout (location = 0) in vec3 vert;
-//layout (location = 1) in vec3 normal;
+layout (location = 0) in vec3 vertex;
+layout (location = 1) in vec3 normal;
 
-attribute vec3 vertex;
-attribute vec3 normal;
+//attribute vec3 vertex;
+//attribute vec3 normal;
 
 uniform mat4 projection;
 uniform mat4 view;

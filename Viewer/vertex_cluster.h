@@ -10,6 +10,7 @@ class vertexCluster{
 
 public:
     void Cluster(const std::vector<float> &verts, const std::vector<int> &faces, Eigen::Vector3f &min, Eigen::Vector3f &max);
+     void computeFacesNormals(int LOD, const std::vector<int> &faces, const std::vector<int> &oldNew);
     void QuadCluster(const std::vector<float> &verts, const std::vector<int> &faces, const std::vector<float> &normals);
     //send to buffer
     std::vector<float> LODvertices;
@@ -25,10 +26,12 @@ public:
     std::vector<float> LODnormals2;
 
     std::vector<float> LODvertices3;
-    std::vector<int> LODface3;
+    std::vector<int> LODfaces3;
     std::vector<float> LODnormals3;
 private:
     //rebuild face
+    std::map <unsigned int, std::vector<int>> verts_in_cell;
+    std::vector<std::array <float, 3>> cellMin; //store cell min position of a cell. Max = min + step
     std::vector<double> x_coords;
     std::vector<double> y_coords;
     std::vector<double> z_coords;

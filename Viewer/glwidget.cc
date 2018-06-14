@@ -72,9 +72,14 @@ bool GLWidget::LoadModel(QString filename) {
     vertC.Cluster(mesh_->vertices_, mesh_->faces_, mesh_->min_, mesh_->max_);
 
 
-    std::vector<float> verts = vertC.LODvertices;
-    std::vector<int> faces = vertC.LODfaces;
-    std::vector<float> normals = vertC.LODnormals;
+//    std::vector<float> verts = vertC.LODvertices;
+//    std::vector<int> faces = vertC.LODfaces;
+//    std::vector<float> normals = vertC.LODnormals;
+
+    std::vector<float> verts = vertC.LODvertices1;
+    std::vector<int> faces = vertC.LODfaces1;
+    std::vector<float> normals = vertC.LODnormals1;
+
 
     emit SetFaces(QString(std::to_string(faces.size() / 3).c_str()));
     emit SetVertices(QString(std::to_string(verts.size() / 3).c_str()));

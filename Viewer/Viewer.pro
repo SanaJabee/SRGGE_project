@@ -6,9 +6,9 @@ TARGET = Viewer
 TEMPLATE = app
 
 CONFIG += c++14
-CONFIG(release, release|debug):QMAKE_CXXFLAGS += -Wall -O2
-CONFIG(release, release|debug):QMAKE_CXXFLAGS += -Wall -O2 -std=c++11
-CONFIG(debug, release|debug):QMAKE_CXXFLAGS += -Wall -O2 -std=c++11
+
+CONFIG(release, release|debug):QMAKE_CXXFLAGS += -Wall -O2 -std=c++11 -g
+
 CONFIG(release, release|debug):DESTDIR = release/
 CONFIG(release, release|debug):OBJECTS_DIR = release/
 CONFIG(release, release|debug):MOC_DIR = release/
