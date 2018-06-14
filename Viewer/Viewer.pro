@@ -5,7 +5,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = Viewer
 TEMPLATE = app
 
-CONFIG += c++14
+CONFIG += c++11
 
 CONFIG(release, release|debug):QMAKE_CXXFLAGS += -Wall -O2 -std=c++11 -g
 
