@@ -34,6 +34,7 @@ private:
     std::vector<double> z_coords;
     std::vector<unsigned int> per_cell;
     std::vector<int> new_faces;
+    std::vector<int> new_faces_again;
     std::map <unsigned int, unsigned int> check_cells; //Cell ids (includes empties) to vert coords (no empties)
 
     };
