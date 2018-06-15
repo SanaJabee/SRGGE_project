@@ -1,0 +1,5 @@
+#ifndef MUSEUM_LAYOUT
+#define MUSEUM_LAYOUT
+
+#endif // MUSEUM_LAYOUT
+
